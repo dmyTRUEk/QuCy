@@ -8,9 +8,9 @@ use crate::vec3d::Vec3d;
 
 #[derive(Debug, Clone)]
 pub struct Atom {
-    name: String,
-    mass: f64,
-    position: Vec3d,
+    pub name: String,
+    pub mass: f64,
+    pub position: Vec3d,
 }
 impl Atom {
     pub fn new(

@@ -8,45 +8,24 @@
 
 use std::{
     env,
-    fmt::Debug,
     fs::read_to_string as read_file,
 };
 
-mod math;
-mod vec3d;
 mod atom;
+mod math;
+mod utils;
+mod vec3d;
 use crate::{
     atom::Atom,
+    utils::ExtensionUnwrapOrExit,
     vec3d::Vec3d,
 };
 
 
-fn exit_with_msg(msg: &str) -> ! {
-    println!("{msg}");
-    std::process::exit(0);
-}
-
-pub trait ExtensionUnwrapOrExit<T> {
-    fn unwrap_or_exit_with_msg(self, msg: &str) -> T;
-}
-impl<T> ExtensionUnwrapOrExit<T> for Option<T> {
-    fn unwrap_or_exit_with_msg(self, msg: &str) -> T {
-        self.unwrap_or_else(|| exit_with_msg(msg))
-    }
-}
-impl<T, E : Debug> ExtensionUnwrapOrExit<T> for Result<T, E> {
-    fn unwrap_or_exit_with_msg(self, msg: &str) -> T {
-        self.unwrap_or_else(|e| exit_with_msg(&format!("{msg}: {e:?}")))
-    }
-}
-
-
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let file_path = args.get(1).unwrap_or_exit_with_msg("No file name given.");
-    let contents = read_file(file_path).unwrap_or_else(|e|
-        exit_with_msg(&format!("Unable to open specified file: {e}."))
-    );
+    let file_path = args.get(1).unwrap_or_exit_with_msg("No file name given");
+    let contents = read_file(file_path).unwrap_or_exit_with_msg("Unable to open specified file");
     // println!("File contents:\n{contents}");
     let mut atoms: Vec<Atom> = vec![];
     for line in contents.lines() {
