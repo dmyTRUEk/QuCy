@@ -1,0 +1,8 @@
+# lines that starts with # treated as comments
+
+# central atom, if no coordinates specified, will be assumed at origin
+O
+# left H:
+H -1 0 0
+# right H:
+H 1 0 0
