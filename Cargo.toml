@@ -1,5 +1,5 @@
 [package]
-name = "quantum-chemistry"
+name = "qucy"
 version = "0.0.0"
 edition = "2021"
 

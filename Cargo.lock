@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "quantum-chemistry"
+name = "qucy"
 version = "0.0.0"
