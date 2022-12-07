@@ -5,7 +5,7 @@ use crate::math::float;
 
 
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3d {
     pub x: float,
     pub y: float,
@@ -29,7 +29,6 @@ impl Vec3d {
     pub fn dot(&self, rhs: Self) -> float {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z
     }
-
 }
 
 impl Neg for Vec3d {
