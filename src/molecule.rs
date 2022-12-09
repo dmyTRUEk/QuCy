@@ -14,7 +14,7 @@ pub struct Molecule {
     pub atoms: Vec<Atom>,
     // number of atoms == `atoms.len()`
     pub cgfs: Vec<CGF>,
-    // number_of_electrons: usize,
+    number_of_electrons: usize,
 }
 impl Molecule {
     pub fn from_string(string: &str) -> Self {
@@ -23,11 +23,11 @@ impl Molecule {
         let total_atoms_charge: float = atoms.iter().map(|a| a.get_charge()).sum();
         assert!(total_atoms_charge.fract() < 1e-3);
         let total_atoms_charge: i32 = total_atoms_charge.round() as i32;
-        // let number_of_electrons: i32 = total_atoms_charge - self_charge;
-        // assert!(0 <= number_of_electrons);
-        // assert!((number_of_electrons as u128) < usize::MAX as u128);
+        let number_of_electrons: i32 = total_atoms_charge - self_charge;
+        assert!(0 <= number_of_electrons);
+        assert!((number_of_electrons as u128) < usize::MAX as u128);
         // TODO: remove asserts and use `.into()` or `usize::from(...)`
-        // let number_of_electrons: usize = number_of_electrons as usize;
+        let number_of_electrons: usize = number_of_electrons as usize;
         let mut cgfs: Vec<CGF> = vec![];
         for atom in &atoms {
             for z in atom.get_zetas() {
@@ -38,10 +38,11 @@ impl Molecule {
                 ));
             }
         }
+        // println!("{cgfs:#?}");
         Self {
             atoms,
             cgfs,
-            // number_of_electrons,
+            number_of_electrons,
         }
     }
 
@@ -52,20 +53,24 @@ impl Molecule {
             let content: String = line.split('#').collect::<Vec<&str>>().get(0).unwrap().trim().to_string();
             if content.is_empty() { continue; }
             // println!("{content}");
-            let parts: Vec<&str> = content.split(' ').collect();
+            let parts: Vec<&str> = content
+                .split(' ')
+                .filter(|p| !p.is_empty())
+                .collect();
             let atom: Atom = match parts.len() {
                 0 => { continue; }
                 1 => { // just name or self_charge
-                    if !atoms.is_empty() { panic!("Only first atom without coorinates allowed.") }
                     if let Ok(self_charge_) = parts[0].to_string().parse::<i32>() {
+                        if self_charge.is_some() { panic!("Self charge must be set only once.") }
                         self_charge = Some(self_charge_);
                         continue;
                     }
                     else {
+                        if !atoms.is_empty() { panic!("Only first atom without coorinates allowed.") }
                         Atom::new(
                             parts[0].to_string(),
                             Vec3d::new(0.0, 0.0, 0.0),
-                            None
+                            // None
                         )
                     }
                 }
@@ -77,7 +82,7 @@ impl Molecule {
                             parts[2].parse::<f64>().unwrap(),
                             parts[3].parse::<f64>().unwrap(),
                         ),
-                        None
+                        // None
                     )
                 }
                 5 => { // name, mass, x, y, z
@@ -96,5 +101,6 @@ impl Molecule {
     }
 
     pub fn get_number_of_atoms(&self) -> usize { self.atoms.len() }
+    pub fn get_number_of_electrons(&self) -> usize { self.number_of_electrons }
 }
 

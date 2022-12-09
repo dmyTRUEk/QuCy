@@ -6,11 +6,14 @@ use float_extras::f64::erf;
 use nalgebra::{DMatrix, Complex};
 
 use crate::{
-    math::{float, PI},
+    eigh::eigh,
+    math::{float, Matrix, PI},
     molecule::Molecule,
     vec3d::Vec3d,
 };
 
+
+const VERBOSE: bool = false;
 
 
 // ----- PART 1: CGF -----
@@ -26,17 +29,17 @@ pub struct CGF {
 }
 impl CGF {
     pub fn from(zeta: float, n: i32, coordinate: Vec3d) -> Self {
-        let constract_cos: [[float; 3]; 2] = [
+        const CONSTRACT_COS: [[float; 3]; 2] = [
             [0.444635, 0.535328, 0.154329],
             [0.700115, 0.399513, -0.0999672],
         ];
-        let alphas: [[float; 3]; 2] = [
+        const ALPHAS: [[float; 3]; 2] = [
             [0.109818, 0.405771, 2.22766],
             [0.0751386, 0.231031, 0.994203]
         ];
-        let n: usize = n as usize;
-        let co:    [float; 3] = constract_cos[n-1];
-        let alpha: [float; 3] = alphas[n-1].iter()
+        let n: usize = n as usize; // TODO: checked cast
+        let co:    [float; 3] = CONSTRACT_COS[n-1];
+        let alpha: [float; 3] = ALPHAS[n-1].iter()
             .map(|a| a * zeta.powi(2))
             .collect::<Vec<float>>().try_into().unwrap();
         // TODO?: gtos, gto, cgf
@@ -226,8 +229,6 @@ fn r_int(cgf1: &CGF, cgf2: &CGF, cgf3: &CGF, cgf4: &CGF) -> float {
 
 // ----- PART 4: Build matrices -----
 
-type Matrix = DMatrix<float>;
-
 fn square_matrix(d: usize) -> Matrix {
     DMatrix::from_element(d, d, 0.0)
 }
@@ -336,7 +337,7 @@ fn p_matrix(co: &Matrix, n: usize) -> Matrix {
     for i1 in 0..co.shape().0 {
         for i2 in 0..co.shape().0 {
             for j in 0..n/2 {
-                p[(i1, i2)] += 2.0 * co[(i1, j)]*co[(i2, j)];
+                p[(i1,i2)] += 2.0 * co[(i1,j)]*co[(i2,j)];
             }
         }
     }
@@ -398,7 +399,7 @@ fn v_nn(mol: &Molecule) -> float {
     nn
 }
 
-/// Slove secular equation, return the MO energies (eigenvalue) and improved coeffients (eigenvector)
+/// Solve secular equation, return the MO energies (eigenvalue) and improved coeffients (eigenvector)
 ///
 /// INPUT:
 ///     F: fock matrix
@@ -407,9 +408,17 @@ fn v_nn(mol: &Molecule) -> float {
 ///     ei: eigenvalue
 ///     C: eigenvector
 fn secular_eqn(f: &Matrix, s: &Matrix) -> (Vec<Complex<float>>, Matrix) {
-    todo!()
-    // let (ei, c) = eigh(f, s);
-    // (ei, c)
+    if VERBOSE {
+        println!("f:\n{}", f);
+        println!("s:\n{}", s);
+    }
+    let (ei, c) = eigh(f, s, true);
+    let c = -c;
+    if VERBOSE {
+        println!("ei:\n{:?}", ei);
+        println!("c:\n{}", c);
+    }
+    (ei, c)
 }
 
 /// Compute the total energy.
@@ -429,10 +438,15 @@ fn energy_tot(
 ) -> float {
     let mut e_tot: float = 0.0;
     for i in 0..n/2 {
-        e_tot += e[i].re;
+        assert!(e[i].im/e[i].re < 1e-5);
+        e_tot += e[i].re; // TODO: if only `re` is used, then can make it real?
     }
+    // dbg!(e_tot);
     // TODO: chech if `(p*h).sum` is correct
-    e_tot += 0.5 * (p * h).sum() + vnn;
+    // dbg!(p.component_mul(h));
+    e_tot += 0.5 * (p.component_mul(h)).sum() + vnn;
+    // dbg!(e_tot);
+    // todo!();
     e_tot
 }
 
@@ -475,12 +489,14 @@ fn print_info(
 
 
 /// Compare calculated result with reference data.
-pub fn compare(calculated: float, reference: float, tolerance: Option<float>) {
+pub fn compare(calculated: float, reference: float, tolerance: Option<float>) -> bool {
     let tolerance: float = tolerance.unwrap_or(1.0e-4);
     let delta = (reference - calculated).abs();
-    let message = if delta < tolerance { "PASSED" } else { "FAILED" };
-    println!("{}{}{}", "-".repeat(32), message, "-".repeat(33));
-    println!("cal: {:.7}, ref: {:.7}\n\n", calculated, reference);
+    let is_correct: bool = delta < tolerance;
+    let pass_or_fail = if is_correct { "PASSED" } else { "FAILED" };
+    println!("{d} {pass_or_fail} {d}", d="-".repeat(22));
+    println!("calculated: {:.7}, reference: {:.7}\n\n", calculated, reference);
+    is_correct
 }
 
 
@@ -491,24 +507,32 @@ pub fn compare(calculated: float, reference: float, tolerance: Option<float>) {
 /// INPUT:
 ///     mol: Molecule
 pub fn run_hf(mol: &Molecule) -> float {
-    println!("------------------------------ Initialization ------------------------------");
-    println!("------------------------- Ignore repulsion integral ------------------------");
+    println!("{d} Initialization {d}", d="-".repeat(19));
+    println!("{d} Ignore repulsion integral {d}", d="-".repeat(13));
     // num of electron
-    let n = mol.get_number_of_atoms();
+    let n = mol.get_number_of_electrons();
 
     // initialization
     // start = time.time();
     let h = h_matrix(&mol.cgfs, mol);
     let s = s_matrix(&mol.cgfs);
+    // TODO: refactor
     let (mut e, mut co) = secular_eqn(&h, &s);
     let mut p = p_matrix(&co, n);
     let vnn = v_nn(mol);
+    // println!("e {e:?}");
+    // println!("n {n:?}");
+    // println!("p {p:?}");
+    // println!("h {h:?}");
+    // println!("vnn {vnn:?}");
     let mut hf_e = energy_tot(&e, n, &p, &h, vnn);
     // stop = time.time();
 
-    print_info(&s, &h, &e, &co, &p, hf_e, None, false);
-    println!("------- Caculating Electron Repulsion Integral (may take some time) --------");
+    print_info(&s, &h, &e, &co, &p, hf_e, None, VERBOSE);
+    // todo!();
+    println!("{d} Caculating Electron Repulsion Integral {d}", d="-".repeat(6));
     let r = r_matrix(&mol.cgfs);
+    println!("Done.");
     let mut delta_e: float = 1.0;
     let mut iter: u32 = 0;
     let mut previous_e = hf_e;
@@ -517,7 +541,7 @@ pub fn run_hf(mol: &Molecule) -> float {
     const MAXITER: u32 = 40;
     const E_CONV: float = 1.0e-6;
     while delta_e > E_CONV && iter < MAXITER {
-        println!("------------------------------ Iteration {ip1} ------------------------------", ip1=iter+1);
+        println!("{d} Iteration {ip1} {d}", d="-".repeat(20), ip1=iter+1);
         // start = time.time();
 
         // important scf steps
@@ -531,7 +555,7 @@ pub fn run_hf(mol: &Molecule) -> float {
         previous_e = hf_e;
         iter += 1;
         // stop = time.time();
-        print_info(&s, &h, &e, &co, &p, hf_e, None, false);
+        print_info(&s, &h, &e, &co, &p, hf_e, None, VERBOSE);
     }
 
     hf_e

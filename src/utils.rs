@@ -22,3 +22,12 @@ impl<T, E: Display> ExtensionUnwrapOrExit<T> for Result<T, E> {
     }
 }
 
+#[macro_export]
+macro_rules! swap {
+    ($a:expr, $b:expr) => { {
+        let t = $a;
+        $a = $b;
+        $b = t;
+    } };
+}
+
